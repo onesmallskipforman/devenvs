@@ -9,7 +9,7 @@
     # pkgs = nixpkgs.legacyPackages.${system};
     pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
 
-    devShells.${system}.default = pkgs.mkShell.override {
+    devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
         bear
         clang-tools
