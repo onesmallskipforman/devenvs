@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# update flake.lock files
+find ./ -name 'flake.nix' \
+  | xargs -n1 dirname \
+  | xargs -I{} nix flake update --flake {}
+
+# build devshells, downloading results to nix store
+find . -name 'flake.nix' \
+  | xargs -n1 dirname \
+  | xargs -I{} nix build --no-link {}#devShells.x86_64-linux.default
+
+nix-collect-garbage -d

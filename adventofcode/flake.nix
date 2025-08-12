@@ -11,6 +11,11 @@
 
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
+          aoc-cli
+          gawk
+          datamash
+          rs
+          csvtk
       ];
     };
 

@@ -11,7 +11,9 @@
 
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
-        (siglo.override { python3 = python-with-distutils; })
+        (siglo.override { python3 = (
+            pkgs.python3.withPackages (python-pkgs: [python-pkgs.setuptools])
+        );})
         itd
       ];
     };

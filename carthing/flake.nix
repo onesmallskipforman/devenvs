@@ -11,24 +11,11 @@
 
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
-        bear
-        clang-tools
-        cmake
-        codespell
-        conan
-        cppcheck
-        doxygen
-        gdb
-        gtest
-        lcov
-        vcpkg
-        vcpkg-tool
-        gnumake
-        gcc
-
-        # arm
-        gcc-arm-embedded
-        stm32flash
+          pyamlboot
+          ungoogled-chromium # for terbium.app
+          # TODO: need to download
+          # https://github.com/bishopdynamics/superbird-tool
+          # https://github.com/usenocturne/nocturne/releases/download/v3.0.0/nocturne_image_v3.0.0.zip
       ];
     };
 
