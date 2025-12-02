@@ -1,5 +1,17 @@
 {
   "nodes": {
+    "flashthing": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-cHo5Im6tx3xZw6vQuMThL6UxkMaEOncoGCq39PxQEoo=",
+        "type": "file",
+        "url": "https://github.com/JoeyEamigh/flashthing/releases/download/v0.1.5/flashthing-cli-linux-x86_64"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://github.com/JoeyEamigh/flashthing/releases/download/v0.1.5/flashthing-cli-linux-x86_64"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1760164275,
@@ -16,9 +28,24 @@
         "type": "github"
       }
     },
+    "nocture": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1754841299,
+        "narHash": "sha256-gpJFAiqKwv9heyJGd7I+JDZ4vdNntONWmC3W7teLUy4=",
+        "type": "tarball",
+        "url": "https://github.com/usenocturne/nocturne/releases/download/v3.0.0/nocturne_image_v3.0.0.zip"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://github.com/usenocturne/nocturne/releases/download/v3.0.0/nocturne_image_v3.0.0.zip"
+      }
+    },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "flashthing": "flashthing",
+        "nixpkgs": "nixpkgs",
+        "nocture": "nocture"
       }
     }
   },
