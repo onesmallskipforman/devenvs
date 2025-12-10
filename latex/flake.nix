@@ -15,6 +15,10 @@
         texlab
         tectonic
         zathura
+        inkscape # for latex drawings
+        enscript # converts textfile to postscript (use with ps2pdf)
+        entr     # run arbitrary commands when files change, for live edit
+        ghostscript # installs ps2pdf
       ];
     };
 
