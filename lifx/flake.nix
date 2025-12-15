@@ -11,7 +11,6 @@
 
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
-          python313
           poetry
       ];
     };
