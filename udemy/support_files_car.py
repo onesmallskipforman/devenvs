@@ -22,6 +22,9 @@ or anything else it was used for fails - the author is NOT RESPONSIBLE!
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+from scipy.linalg import block_diag
+
 class SupportFilesCar:
     ''' The following functions interact with the main file'''
 
@@ -40,8 +43,8 @@ class SupportFilesCar:
         # Parameters for the lane change: [psi_ref 0;0 Y_ref]
         # Higher psi reduces the overshoot
         # Matrix weights for the cost function (They must be diagonal)
-        Q=np.matrix('1 0;0 1') # weights for outputs (all samples, except the last one)
-        S=np.matrix('1 0;0 1') # weights for the final horizon period outputs
+        Q=np.matrix('100 0;0 1') # weights for outputs (all samples, except the last one)
+        S=np.matrix('100 0;0 1') # weights for the final horizon period outputs
         R=np.matrix('1') # weights for inputs (only 1 input in our case)
 
         outputs=2 # number of outputs
@@ -68,7 +71,7 @@ class SupportFilesCar:
 
         ### PID END ###
 
-        trajectory=3 # You should only choose 1,2,3
+        trajectory=1 # You should only choose 1,2,3
 
         self.constants={'m':m, 'Iz':Iz, 'Caf':Caf, 'Car':Car, 'lf':lf, 'lr':lr,\
             'Ts':Ts, 'Q':Q, 'S':S, 'R':R, 'outputs':outputs, 'hz':hz, 'x_dot':x_dot,\
@@ -164,6 +167,55 @@ class SupportFilesCar:
 
         return Ad, Bd, Cd, Dd
 
+    def mpc_simplification2(self, Ad, Bd, Cd, Dd, hz):
+        '''This function creates the compact matrices for Model Predictive Control'''
+        # db - double bar
+        # dbt - double bar transpose
+        # dc - double circumflex
+
+        A_aug = np.block([
+            [Ad                                  , Bd                       ],
+            [np.zeros((Bd.shape[1], Ad.shape[1])), np.identity(Bd.shape[1]) ],
+        ])
+        # TODO: decide whether to use concat or block for cases like this
+        B_aug = np.block([
+            [Bd                      ],
+            [np.identity(Bd.shape[1])],
+        ])
+        C_aug = np.block([
+            Cd, np.zeros((Cd.shape[0],Bd.shape[1]))
+        ])
+        D_aug=Dd
+
+        Q=self.constants['Q']
+        S=self.constants['S']
+        R=self.constants['R']
+
+        CQC = C_aug.T @ Q @ C_aug
+        CSC = C_aug.T @ S @ C_aug
+        QC = Q @ C_aug
+        SC = S @ C_aug
+
+        blocks = [[
+            np.linalg.matrix_power(A_aug,((i+1)-(j+1))) @ B_aug
+            if i >= j else np.zeros((B_aug.shape))
+        for j in range(0, hz)] for i in range(0, hz)]
+        Cdb = np.block(blocks)
+
+        # TODO: concat would be much more readable here
+        Adc = np.block([[np.linalg.matrix_power(A_aug, i+1)] for i in range(0, hz)])
+
+        Qdb = block_diag( *([CQC]*(hz-1) + [CSC]) )
+        Tdb = block_diag( *([QC ]*(hz-1) + [SC ]) )
+        Rdb = block_diag( *([R  ]*(hz  )        ) )
+        Hdb= Cdb.T @ Qdb @ Cdb + Rdb
+        Fdbt = np.concat((
+            Adc.T @ Qdb @ Cdb,
+            -Tdb @ Cdb,
+        ))
+
+        return Hdb,Fdbt,Cdb,Adc
+
     def mpc_simplification(self, Ad, Bd, Cd, Dd, hz):
         '''This function creates the compact matrices for Model Predictive Control'''
         # db - double bar
@@ -217,6 +269,8 @@ class SupportFilesCar:
 
             Adc[np.size(A_aug,0)*i:np.size(A_aug,0)*i+A_aug.shape[0],0:0+A_aug.shape[1]]=np.linalg.matrix_power(A_aug,i+1)
 
+        # print(np.array_equal(Cdb, Cdb2))
+        # exit()
         Hdb=np.matmul(np.transpose(Cdb),Qdb)
         Hdb=np.matmul(Hdb,Cdb)+Rdb
 

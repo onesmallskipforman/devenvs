@@ -14,6 +14,7 @@
           python313
           python313Packages.numpy
           python313Packages.matplotlib
+          python313Packages.scipy
       ];
       #
       # shellHook = ''

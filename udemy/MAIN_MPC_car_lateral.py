@@ -67,7 +67,7 @@ for i in range(0,len(refSignals),outputs):
 y_dot=0.
 psi=0.
 psi_dot=0.
-Y=Y_ref[0]+10.
+Y=Y_ref[0]+20.
 
 states=np.array([y_dot,psi,psi_dot,Y])
 statesTotal=np.zeros((len(t),len(states))) # It will keep track of all your states during the entire manoeuvre
