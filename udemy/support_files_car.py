@@ -149,39 +149,6 @@ class SupportFilesCar:
         x_dot=self.constants['x_dot']
 
         # Get the state space matrices for the control
-
-        A1=-(2*Caf+2*Car)/(m*x_dot)
-        A2=-x_dot-(2*Caf*lf-2*Car*lr)/(m*x_dot)
-        A3=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)
-        A4=-(2*lf**2*Caf+2*lr**2*Car)/(Iz*x_dot)
-
-        A=np.array([[A1, 0, A2, 0],[0, 0, 1, 0],[A3, 0, A4, 0],[1, x_dot, 0, 0]])
-        B=np.array([[2*Caf/m],[0],[2*lf*Caf/Iz],[0]])
-        C=np.array([[0, 1, 0, 0],[0, 0, 0, 1]])
-        D=0
-
-        # Discretise the system (forward Euler)
-        Ad=np.identity(np.size(A,1))+Ts*A
-        Bd=Ts*B
-        Cd=C
-        Dd=D
-
-        return Ad, Bd, Cd, Dd
-
-    def state_space2(self, Ts=None):
-        '''This function forms the state space matrices and transforms them in the discrete form'''
-
-        # Get the necessary constants
-        m=self.constants['m']
-        Iz=self.constants['Iz']
-        Caf=self.constants['Caf']
-        Car=self.constants['Car']
-        lf=self.constants['lf']
-        lr=self.constants['lr']
-        Ts=self.constants['Ts'] if Ts == None else Ts
-        x_dot=self.constants['x_dot']
-
-        # Get the state space matrices for the control
         A1=-(2*Caf+2*Car)/(m*x_dot)
         A2=-x_dot-(2*Caf*lf-2*Car*lr)/(m*x_dot)
         A3=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)
@@ -196,9 +163,16 @@ class SupportFilesCar:
         sys = signal.StateSpace(A, B, C, D)
         dis = sys.to_discrete(Ts, method = 'euler')
 
-        return dis.A, dis.B, dis.C, dis.D, dis
+        # Discretise the system (forward Euler)
+        # Ad=np.identity(np.size(A,1))+Ts*A
+        # Bd=Ts*B
+        # Cd=C
+        # Dd=D
+        # return Ad, Bd, Cd, Dd
 
-    def mpc_simplification2(self, Ad, Bd, Cd, Dd, hz):
+        return dis.A, dis.B, dis.C, dis.D
+
+    def mpc_simplification(self, Ad, Bd, Cd, Dd, hz):
         '''This function creates the compact matrices for Model Predictive Control'''
         # db - double bar
         # dbt - double bar transpose
@@ -247,72 +221,6 @@ class SupportFilesCar:
 
         return Hdb,Fdbt,Cdb,Adc
 
-    def mpc_simplification(self, Ad, Bd, Cd, Dd, hz):
-        '''This function creates the compact matrices for Model Predictive Control'''
-        # db - double bar
-        # dbt - double bar transpose
-        # dc - double circumflex
-
-        A_aug=np.concatenate((Ad,Bd),axis=1)
-        temp1=np.zeros((np.size(Bd,1),np.size(Ad,1)))
-        temp2=np.identity(np.size(Bd,1))
-        temp=np.concatenate((temp1,temp2),axis=1)
-
-        A_aug=np.concatenate((A_aug,temp),axis=0)
-        B_aug=np.concatenate((Bd,np.identity(np.size(Bd,1))),axis=0)
-        C_aug=np.concatenate((Cd,np.zeros((np.size(Cd,0),np.size(Bd,1)))),axis=1)
-        D_aug=Dd
-
-
-        Q=self.constants['Q']
-        S=self.constants['S']
-        R=self.constants['R']
-
-        CQC=np.matmul(np.transpose(C_aug),Q)
-        CQC=np.matmul(CQC,C_aug)
-
-        CSC=np.matmul(np.transpose(C_aug),S)
-        CSC=np.matmul(CSC,C_aug)
-
-        QC=np.matmul(Q,C_aug)
-        SC=np.matmul(S,C_aug)
-
-
-        Qdb=np.zeros((np.size(CQC,0)*hz,np.size(CQC,1)*hz))
-        Tdb=np.zeros((np.size(QC,0)*hz,np.size(QC,1)*hz))
-        Rdb=np.zeros((np.size(R,0)*hz,np.size(R,1)*hz))
-        Cdb=np.zeros((np.size(B_aug,0)*hz,np.size(B_aug,1)*hz))
-        Adc=np.zeros((np.size(A_aug,0)*hz,np.size(A_aug,1)))
-
-        for i in range(0,hz):
-            if i == hz-1:
-                Qdb[np.size(CSC,0)*i:np.size(CSC,0)*i+CSC.shape[0],np.size(CSC,1)*i:np.size(CSC,1)*i+CSC.shape[1]]=CSC
-                Tdb[np.size(SC,0)*i:np.size(SC,0)*i+SC.shape[0],np.size(SC,1)*i:np.size(SC,1)*i+SC.shape[1]]=SC
-            else:
-                Qdb[np.size(CQC,0)*i:np.size(CQC,0)*i+CQC.shape[0],np.size(CQC,1)*i:np.size(CQC,1)*i+CQC.shape[1]]=CQC
-                Tdb[np.size(QC,0)*i:np.size(QC,0)*i+QC.shape[0],np.size(QC,1)*i:np.size(QC,1)*i+QC.shape[1]]=QC
-
-            Rdb[np.size(R,0)*i:np.size(R,0)*i+R.shape[0],np.size(R,1)*i:np.size(R,1)*i+R.shape[1]]=R
-
-            for j in range(0,hz):
-                if j<=i:
-                    Cdb[np.size(B_aug,0)*i:np.size(B_aug,0)*i+B_aug.shape[0],np.size(B_aug,1)*j:np.size(B_aug,1)*j+B_aug.shape[1]]=np.matmul(np.linalg.matrix_power(A_aug,((i+1)-(j+1))),B_aug)
-
-            Adc[np.size(A_aug,0)*i:np.size(A_aug,0)*i+A_aug.shape[0],0:0+A_aug.shape[1]]=np.linalg.matrix_power(A_aug,i+1)
-
-        # print(np.array_equal(Cdb, Cdb2))
-        # exit()
-        Hdb=np.matmul(np.transpose(Cdb),Qdb)
-        Hdb=np.matmul(Hdb,Cdb)+Rdb
-
-        temp=np.matmul(np.transpose(Adc),Qdb)
-        temp=np.matmul(temp,Cdb)
-
-        temp2=np.matmul(-Tdb,Cdb)
-        Fdbt=np.concatenate((temp,temp2),axis=0)
-
-        return Hdb,Fdbt,Cdb,Adc
-
     def de(self, t, states, U1):
         # Get the necessary constants
         m=self.constants['m']
@@ -321,15 +229,9 @@ class SupportFilesCar:
         Car=self.constants['Car']
         lf=self.constants['lf']
         lr=self.constants['lr']
-        Ts=self.constants['Ts']
-
         x_dot=self.constants['x_dot']
-        current_states=states.copy()
-        new_states=current_states
-        y_dot=current_states[0]
-        psi=current_states[1]
-        psi_dot=current_states[2]
-        Y=current_states[3]
+
+        y_dot, psi, psi_dot, Y = states
 
         # Compute the the derivatives of the states
         y_dot_dot=-(2*Caf+2*Car)/(m*x_dot)*y_dot+(-x_dot-(2*Caf*lf-2*Car*lr)/(m*x_dot))*psi_dot+2*Caf/m*U1
@@ -337,69 +239,14 @@ class SupportFilesCar:
         psi_dot_dot=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)*y_dot-(2*lf**2*Caf+2*lr**2*Car)/(Iz*x_dot)*psi_dot+2*lf*Caf/Iz*U1
         Y_dot=np.sin(psi)*x_dot+np.cos(psi)*y_dot
 
-        # print(y_dot_dot)
         return np.array([y_dot_dot, psi_dot, psi_dot_dot, Y_dot])
 
     def open_loop_new_states(self,states,U1):
         '''This function computes the new state vector for one sample time later'''
 
         # Get the necessary constants
-        m=self.constants['m']
-        Iz=self.constants['Iz']
-        Caf=self.constants['Caf']
-        Car=self.constants['Car']
-        lf=self.constants['lf']
-        lr=self.constants['lr']
         Ts=self.constants['Ts']
-        x_dot=self.constants['x_dot']
 
-        current_states=states.copy()
-        new_states=current_states
-        y_dot=current_states[0]
-        psi=current_states[1]
-        psi_dot=current_states[2]
-        Y=current_states[3]
-
-        sub_loop=30  #Chop Ts into 30 pieces
-        for i in range(0,sub_loop):
-            # Compute the the derivatives of the states
-            y_dot_dot=-(2*Caf+2*Car)/(m*x_dot)*y_dot+(-x_dot-(2*Caf*lf-2*Car*lr)/(m*x_dot))*psi_dot+2*Caf/m*U1
-            psi_dot=psi_dot
-            psi_dot_dot=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)*y_dot-(2*lf**2*Caf+2*lr**2*Car)/(Iz*x_dot)*psi_dot+2*lf*Caf/Iz*U1
-            Y_dot=np.sin(psi)*x_dot+np.cos(psi)*y_dot
-            # print(y_dot_dot)
-
-            # Update the state values with new state derivatives
-            y_dot=y_dot+y_dot_dot*Ts/sub_loop
-            psi=psi+psi_dot*Ts/sub_loop
-            psi_dot=psi_dot+psi_dot_dot*Ts/sub_loop
-            Y=Y+Y_dot*Ts/sub_loop
-
-        # print()
-        # Take the last states
-        new_states[0]=y_dot
-        new_states[1]=psi
-        new_states[2]=psi_dot
-        new_states[3]=Y
-
-        # print((U1,))
+        # integrate system over one time-step
         result = integrate.solve_ivp(self.de, (0, Ts), y0=states, args=(U1,))
-        # print(result.t)
-        # print(states)
-        # print(result.y[1])
-        # exit()
-
-
-        return new_states
-
-    def open_loop_new_states2(self,states,U1):
-        '''This function computes the new state vector for one sample time later'''
-
-        # Get the necessary constants
-        Ts=self.constants['Ts']
-        A, B, C, D = self.state_space2(Ts=Ts/30)
-        t = np.linspace(0, Ts, num=30)
-        u = np.full_like(t, U1)
-        print(states)
-        _, _, x = signal.dlsim((A, B, C, D, Ts/30), u, t=t, x0=states)
-        return x[-1]
+        return result.y[:, -1]
