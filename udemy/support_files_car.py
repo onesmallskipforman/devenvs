@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 
 
 from scipy.linalg import block_diag
+from scipy import signal, integrate
 
 class SupportFilesCar:
     ''' The following functions interact with the main file'''
@@ -167,6 +168,36 @@ class SupportFilesCar:
 
         return Ad, Bd, Cd, Dd
 
+    def state_space2(self, Ts=None):
+        '''This function forms the state space matrices and transforms them in the discrete form'''
+
+        # Get the necessary constants
+        m=self.constants['m']
+        Iz=self.constants['Iz']
+        Caf=self.constants['Caf']
+        Car=self.constants['Car']
+        lf=self.constants['lf']
+        lr=self.constants['lr']
+        Ts=self.constants['Ts'] if Ts == None else Ts
+        x_dot=self.constants['x_dot']
+
+        # Get the state space matrices for the control
+        A1=-(2*Caf+2*Car)/(m*x_dot)
+        A2=-x_dot-(2*Caf*lf-2*Car*lr)/(m*x_dot)
+        A3=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)
+        A4=-(2*lf**2*Caf+2*lr**2*Car)/(Iz*x_dot)
+
+        A=np.array([[A1, 0, A2, 0],[0, 0, 1, 0],[A3, 0, A4, 0],[1, x_dot, 0, 0]])
+        B=np.array([[2*Caf/m],[0],[2*lf*Caf/Iz],[0]])
+        C=np.array([[0, 1, 0, 0],[0, 0, 0, 1]])
+        D=np.zeros((C.shape[0], B.shape[1]))
+
+        # Discretise the system (forward Euler)
+        sys = signal.StateSpace(A, B, C, D)
+        dis = sys.to_discrete(Ts, method = 'euler')
+
+        return dis.A, dis.B, dis.C, dis.D, dis
+
     def mpc_simplification2(self, Ad, Bd, Cd, Dd, hz):
         '''This function creates the compact matrices for Model Predictive Control'''
         # db - double bar
@@ -282,6 +313,33 @@ class SupportFilesCar:
 
         return Hdb,Fdbt,Cdb,Adc
 
+    def de(self, t, states, U1):
+        # Get the necessary constants
+        m=self.constants['m']
+        Iz=self.constants['Iz']
+        Caf=self.constants['Caf']
+        Car=self.constants['Car']
+        lf=self.constants['lf']
+        lr=self.constants['lr']
+        Ts=self.constants['Ts']
+
+        x_dot=self.constants['x_dot']
+        current_states=states.copy()
+        new_states=current_states
+        y_dot=current_states[0]
+        psi=current_states[1]
+        psi_dot=current_states[2]
+        Y=current_states[3]
+
+        # Compute the the derivatives of the states
+        y_dot_dot=-(2*Caf+2*Car)/(m*x_dot)*y_dot+(-x_dot-(2*Caf*lf-2*Car*lr)/(m*x_dot))*psi_dot+2*Caf/m*U1
+        psi_dot=psi_dot
+        psi_dot_dot=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)*y_dot-(2*lf**2*Caf+2*lr**2*Car)/(Iz*x_dot)*psi_dot+2*lf*Caf/Iz*U1
+        Y_dot=np.sin(psi)*x_dot+np.cos(psi)*y_dot
+
+        # print(y_dot_dot)
+        return np.array([y_dot_dot, psi_dot, psi_dot_dot, Y_dot])
+
     def open_loop_new_states(self,states,U1):
         '''This function computes the new state vector for one sample time later'''
 
@@ -295,7 +353,7 @@ class SupportFilesCar:
         Ts=self.constants['Ts']
         x_dot=self.constants['x_dot']
 
-        current_states=states
+        current_states=states.copy()
         new_states=current_states
         y_dot=current_states[0]
         psi=current_states[1]
@@ -309,6 +367,7 @@ class SupportFilesCar:
             psi_dot=psi_dot
             psi_dot_dot=-(2*lf*Caf-2*lr*Car)/(Iz*x_dot)*y_dot-(2*lf**2*Caf+2*lr**2*Car)/(Iz*x_dot)*psi_dot+2*lf*Caf/Iz*U1
             Y_dot=np.sin(psi)*x_dot+np.cos(psi)*y_dot
+            # print(y_dot_dot)
 
             # Update the state values with new state derivatives
             y_dot=y_dot+y_dot_dot*Ts/sub_loop
@@ -316,10 +375,31 @@ class SupportFilesCar:
             psi_dot=psi_dot+psi_dot_dot*Ts/sub_loop
             Y=Y+Y_dot*Ts/sub_loop
 
+        # print()
         # Take the last states
         new_states[0]=y_dot
         new_states[1]=psi
         new_states[2]=psi_dot
         new_states[3]=Y
 
+        # print((U1,))
+        result = integrate.solve_ivp(self.de, (0, Ts), y0=states, args=(U1,))
+        # print(result.t)
+        # print(states)
+        # print(result.y[1])
+        # exit()
+
+
         return new_states
+
+    def open_loop_new_states2(self,states,U1):
+        '''This function computes the new state vector for one sample time later'''
+
+        # Get the necessary constants
+        Ts=self.constants['Ts']
+        A, B, C, D = self.state_space2(Ts=Ts/30)
+        t = np.linspace(0, Ts, num=30)
+        u = np.full_like(t, U1)
+        print(states)
+        _, _, x = signal.dlsim((A, B, C, D, Ts/30), u, t=t, x0=states)
+        return x[-1]
